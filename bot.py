@@ -1,4 +1,5 @@
 import asyncio
+import sqlite3
 from dotenv import load_dotenv
 from telegram import Update #base API
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters # python telegram bot API
