@@ -1,17 +1,20 @@
 #!/bin/bash
 
-# File to track last run date
-LAST_RUN_FILE=~/last_run_date.txt
-TODAY=$(date +%Y-%m-%d)
+# Full path to automate and processing scripts
+AUTOMATE_SCRIPT="/Users/viggy/Desktop/rt/Misc/felsig/automate.sh"
+PROCESS_SCRIPT="/Users/viggy/Desktop/rt/Misc/felsig/process_daily_notes.py"
+PYTHON="/Users/viggy/mambaforge/bin/python"
 
-# Only run if not run today
-if [ ! -f "$LAST_RUN_FILE" ] || [ "$(cat $LAST_RUN_FILE)" != "$TODAY" ]; then
-    echo "Running daily script at $(date)" >> ~/launchd_run.log
+TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
 
-    /Users/viggy/Desktop/rt/Misc/felsig/automate.sh #run automation script
+#run the bot for 60s then kill. this collects any prev msgs and adds to sqlite db
+echo "$TIMESTAMP Starting automate.sh to collect new Telegram messages..."
+bash "$AUTOMATE_SCRIPT"
 
-    # Update last run date
-    echo "$TODAY" > "$LAST_RUN_FILE"
-else
-    echo "Already ran today, skipping $(date)" >> ~/launchd_run.log
-fi
+#send unprocessed notes to obsidian daily notes
+TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
+echo "$TIMESTAMP Starting process_daily_notes.py to sync to Obsidian..."
+"$PYTHON" "$PROCESS_SCRIPT" >> "$HOME/process_daily_notes.log" 2>&1
+
+TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
+echo "$TIMESTAMP Finished sync."
