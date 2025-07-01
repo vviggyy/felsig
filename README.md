@@ -8,3 +8,5 @@ The bot is a daemon controlled via `launchd`. When active, the daemon will launc
 `plist` isn't shown here
 
 in German: rocky
+
+UPDATE: launchd, cron, and Shortcuts all run into issues  with permissions. Set up with Automator if needed.
