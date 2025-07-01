@@ -1,4 +1,5 @@
 #!/bin/bash
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] run_daily.sh triggered" >> "$HOME/run_daily.log"
 
 # Full path to automate and processing scripts
 AUTOMATE_SCRIPT="/Users/viggy/Desktop/rt/Misc/felsig/automate.sh"
