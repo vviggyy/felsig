@@ -9,6 +9,6 @@ echo "starting bot..."
 $PYTHON "$BOT_SCRIPT" >> "$LOGFILE" 2>&1 &
 
 BOT_PID=$!
-sleep 5
+sleep 10
 echo "killing bot..."
 kill $BOT_PID
