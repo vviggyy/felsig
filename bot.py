@@ -4,8 +4,9 @@ Long-polls Telegram and appends every message from you to a note in your vault:
   plain text, /dn, !dn       -> today's daily note
   /idea, !idea               -> ideas inbox
   /learn, !learn             -> things to learn
+  /todo, !todo               -> todo list, as a checkbox task
   voice notes                -> transcribed locally with whisper.cpp, then routed the same way
-                                (start the recording with "idea ..." or "learn ..." to route it)
+                                (start the recording with "idea", "learn" or "todo" to route it)
 Targets live in config.toml (see config.example.toml).
 """
 import asyncio
@@ -46,7 +47,13 @@ ALIASES = {name: name for name in TARGETS} | {
 ALLOWED = {int(x) for x in os.getenv("ALLOWED_USER_ID", "").replace(",", " ").split()}
 
 PREFIX = re.compile(r"[/!](\w+)(?:@\w+)?(?:\s+|$)(.*)", re.DOTALL)  # "/idea text", "!idea text", "/idea@bot text"
-SPOKEN = re.compile(r"\W*(\w+)[\s,.:;!?-]+(.+)", re.DOTALL)  # "Idea, text" at the start of a transcript
+# "Idea, text" at the start of a transcript. Spaces/hyphens inside the keyword are optional,
+# because whisper writes a spoken "todo" as "To do," or "To-do:".
+SPOKEN = re.compile(
+    r"\W*(" + "|".join(r"[\s-]?".join(map(re.escape, a)) for a in sorted(ALIASES, key=len, reverse=True))
+    + r")[\s,.:;!?-]+(.+)",
+    re.DOTALL | re.IGNORECASE,
+)
 NON_SPEECH = re.compile(r"\[[A-Z_ ]+\]")  # whisper.cpp markers like [BLANK_AUDIO]
 
 
@@ -159,10 +166,9 @@ async def transcribe(audio: Path) -> str:
 
 def route_spoken(text: str) -> tuple[str, str]:
     """'Idea, an app that ...' -> ('idea', 'An app that ...'); anything else goes to the default target."""
-    m = SPOKEN.match(text)
-    if m and m[1].lower() in ALIASES:
+    if m := SPOKEN.match(text):
         body = m[2].strip()
-        return ALIASES[m[1].lower()], body[:1].upper() + body[1:]
+        return ALIASES[re.sub(r"[\s-]", "", m[1].lower())], body[:1].upper() + body[1:]
     return DEFAULT, text
 
 

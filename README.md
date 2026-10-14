@@ -9,12 +9,13 @@ in German: rocky
 | plain text, `/dn`, `!dn`                       | `OP3R/daily/YYYY-MM-DD.md` |
 | `/idea`, `!idea`                               | `ideas/inbox.md`           |
 | `/learn`, `!learn`                             | `to learn.md`              |
+| `/todo`, `!todo`                               | `Todo3.md`, as `- [ ] task` |
 | voice note                                     | daily note, transcribed    |
-| voice note starting "idea, ..." / "learn, ..." | that target                |
+| voice note starting "idea, ..." / "learn, ..." / "todo, ..." | that target  |
 
 Entries are dated by when you *sent* them (`- 14:32 text` in the daily note, `- [[2026-10-14]] text` elsewhere, linking back to the day). The bot replies ✓ with where it went.
 
-Voice notes are transcribed locally with [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (large-v3-turbo, quantized, on the Mac's GPU): free, offline, ~4s per note (the very first one took ~30s while macOS cached the model). The reply includes the transcript so you can catch mishearings. Routing keys off the first word, so pause after it ("Idea. ..."), and a daily note that happens to start with "Ideas are..." will go to ideas.
+Voice notes are transcribed locally with [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (large-v3-turbo, quantized, on the Mac's GPU): free, offline, ~4s per note (the very first one took ~30s while macOS cached the model). The reply includes the transcript so you can catch mishearings. Routing keys off the first word, so pause after it ("Idea. ..."), and a daily note that happens to start with "Ideas are..." or "To do this..." will go to that target instead.
 
 ## how it runs
 
