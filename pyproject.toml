@@ -1,0 +1,10 @@
+[project]
+name = "felsig"
+version = "0.2.0"
+description = "Telegram bot that captures notes-to-self (text + voice) into an Obsidian vault"
+requires-python = ">=3.12"
+dependencies = [
+    "av>=19.0.1",
+    "python-dotenv>=1.2.4",
+    "python-telegram-bot>=22.8",
+]

@@ -1,0 +1,32 @@
+# Copy to config.toml (./felsig.sh setup does this) and edit.
+#
+# Each [targets.<name>] becomes /<name> and !<name> in Telegram (plus any aliases).
+#   path   note path inside the vault; strftime codes (%Y-%m-%d) are filled in with
+#          the time you *sent* the message, so late-night notes land on the right day
+#   entry  what gets appended; {date} = YYYY-MM-DD, {time} = HH:MM, {text} = your message
+#   label  shown in the bot's reply and command menu
+
+vault = "~/Documents/vvv"
+default = "dn"  # where plain text and untagged voice notes go
+
+[targets.dn]
+path = "OP3R/daily/%Y-%m-%d.md"
+entry = "- {time} {text}"
+label = "daily note"
+aliases = ["daily"]
+
+[targets.idea]
+path = "ideas/inbox.md"
+entry = "- [[{date}]] {text}"
+label = "ideas inbox"
+aliases = ["ideas"]
+
+[targets.learn]
+path = "to learn.md"
+entry = "- [[{date}]] {text}"
+label = "to learn"
+
+[voice]
+model = "~/.felsig/models/ggml-large-v3-turbo-q5_0.bin"
+language = "en"  # "auto" detects the language but costs an extra ~3s per note
+prefix = "🎙 "     # marks transcribed entries in the vault; set to "" to drop
