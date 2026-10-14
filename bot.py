@@ -45,7 +45,7 @@ ALIASES = {name: name for name in TARGETS} | {
 ALLOWED = {int(x) for x in os.getenv("ALLOWED_USER_ID", "").replace(",", " ").split()}
 
 PREFIX = re.compile(r"[/!](\w+)(?:@\w+)?(?:\s+|$)(.*)", re.DOTALL)  # "/idea text", "!idea text", "/idea@bot text"
-SPOKEN = re.compile(r"(\w+)[\s,.:;!?-]+(.+)", re.DOTALL)  # "Idea, text" at the start of a transcript
+SPOKEN = re.compile(r"\W*(\w+)[\s,.:;!?-]+(.+)", re.DOTALL)  # "Idea, text" at the start of a transcript
 NON_SPEECH = re.compile(r"\[[A-Z_ ]+\]")  # whisper.cpp markers like [BLANK_AUDIO]
 
 
@@ -147,7 +147,9 @@ async def transcribe(audio: Path) -> str:
     out, err = await proc.communicate()
     if proc.returncode:
         raise RuntimeError(f"whisper-cli exited {proc.returncode}: {err.decode()[-300:]}")
-    return " ".join(NON_SPEECH.sub("", out.decode()).split())
+    # whisper sometimes starts segments with subtitle-style dialogue dashes ("- Idea, ...")
+    lines = (line.strip().lstrip("-–— ") for line in NON_SPEECH.sub("", out.decode()).splitlines())
+    return " ".join(" ".join(lines).split())
 
 
 def route_spoken(text: str) -> tuple[str, str]:
