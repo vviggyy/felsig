@@ -20,7 +20,13 @@ Voice notes are transcribed locally with [whisper.cpp](https://github.com/ggml-o
 
 One long-running process (`bot.py`) long-polls Telegram and appends straight to the vault. launchd keeps it alive and starts it at login. Telegram holds unread messages for 24h, so anything sent while the Mac sleeps arrives when it wakes (more than 24h off and they're dropped).
 
-Only your Telegram user ID (`ALLOWED_USER_ID`) can write. If a write fails, the entry goes to `~/.felsig/pending.jsonl` and is retried on the next message.
+Only your Telegram user ID (`ALLOWED_USER_ID`) can write.
+
+### when it can't save
+
+- **Mac awake, write fails** (permissions, disk full): the bot replies ⚠️ with the reason. The entry goes to `~/.felsig/pending.jsonl` and is written on the next message or restart. If even that fails, the reply says **NOT saved**.
+- **Transcription fails** or anything unexpected breaks: ⚠️ reply saying nothing was saved.
+- **Mac asleep/off**: the bot can't say anything, so no ✓ reply means it's offline (your message waits up to 24h). For a proactive warning, set `HEARTBEAT_URL`: the bot checks in every 10 min, and [healthchecks.io](https://healthchecks.io) (free) alerts you when it's been quiet too long. Create a check with period 1 hour and grace 17 hours, so you hear about it at 18h, before Telegram's 24h cutoff. Add the Telegram integration there to get the alert in Telegram.
 
 ## setup
 

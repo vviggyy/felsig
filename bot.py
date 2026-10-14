@@ -20,6 +20,7 @@ import tomllib
 from pathlib import Path
 
 import av
+import httpx
 from dotenv import load_dotenv
 from telegram import BotCommand, Message, Update
 from telegram.error import Conflict
@@ -70,50 +71,54 @@ def append(path: Path, entry: str):
         f.write((("\n" if needs_newline else "") + entry + "\n").encode())
 
 
+def queue(path: Path, entry: str):
+    STATE_DIR.mkdir(exist_ok=True)
+    with PENDING.open("a") as f:
+        f.write(json.dumps({"path": str(path), "entry": entry}) + "\n")
+
+
 def flush_pending():
+    """Write queued entries to the vault; whatever still fails stays queued."""
     if not PENDING.exists():
         return
-    left = []
-    for line in PENDING.read_text().splitlines():
-        item = json.loads(line)
-        try:
-            append(Path(item["path"]), item["entry"])
-        except OSError:
-            left.append(line)
-    if left:
-        PENDING.write_text("\n".join(left) + "\n")
-    else:
-        PENDING.unlink()
-        log.info("flushed retry queue")
-
-
-def save(path: Path, entry: str):
-    """Append to the vault; on failure queue the entry in ~/.felsig and re-raise."""
-    flush_pending()
     try:
-        append(path, entry)
+        left = []
+        for line in PENDING.read_text().splitlines():
+            item = json.loads(line)
+            try:
+                append(Path(item["path"]), item["entry"])
+            except OSError:
+                left.append(line)
+        if left:
+            PENDING.write_text("\n".join(left) + "\n")
+        else:
+            PENDING.unlink()
+            log.info("flushed retry queue")
     except OSError:
-        STATE_DIR.mkdir(exist_ok=True)
-        with PENDING.open("a") as f:
-            f.write(json.dumps({"path": str(path), "entry": entry}) + "\n")
-        raise
+        log.exception("couldn't flush retry queue")
 
 
 async def store(msg: Message, key: str, text: str) -> str:
     """Save text to target `key`, dated by when the message was sent. Returns a reply for the chat."""
     path, entry = render(key, text, msg.date.astimezone())
+    flush_pending()  # older queued entries first, so notes stay in order
     try:
-        save(path, entry)
-    except PermissionError:
-        log.exception("vault write blocked")
-        return (
-            "⚠️ macOS blocked writing to the vault. Give Full Disk Access to "
-            f"{os.path.realpath(sys.executable)} (./felsig.sh permissions), then ./felsig.sh restart. "
-            "Your note is queued and will be written once that's fixed."
-        )
+        append(path, entry)
     except OSError as e:
         log.exception("vault write failed")
-        return f"⚠️ Couldn't write to the vault ({e.strerror}). Queued; will retry on the next message."
+        if isinstance(e, PermissionError):
+            problem = (
+                "macOS blocked writing to the vault. Give Full Disk Access to "
+                f"{os.path.realpath(sys.executable)} (./felsig.sh permissions), then ./felsig.sh restart."
+            )
+        else:
+            problem = f"Couldn't write to the vault ({e.strerror})."
+        try:
+            queue(path, entry)
+        except OSError:
+            log.exception("couldn't queue the entry either")
+            return f"⚠️ {problem}\nNOT saved. Resend it once that's fixed."
+        return f"⚠️ {problem}\nQueued; it gets written automatically after that (on your next message or a restart)."
     log.info("saved to %s", path.relative_to(VAULT))
     return f"✓ {TARGETS[key].get('label', key)}"
 
@@ -236,8 +241,19 @@ async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     if isinstance(context.error, Conflict):
         log.error("another copy of this bot is polling with the same token (./felsig.sh run and start at once?)")
-    else:
-        log.error("unhandled error", exc_info=context.error)
+        return
+    log.error("unhandled error", exc_info=context.error)
+    if isinstance(update, Update) and update.message:  # never fail silently on one of your messages
+        await update.message.reply_text(f"⚠️ Something went wrong and this wasn't saved: {context.error}")
+
+
+async def heartbeat(context: ContextTypes.DEFAULT_TYPE):
+    """Check in with an external monitor (healthchecks.io), which alerts you if the bot goes quiet."""
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.get(context.job.data, timeout=10)
+    except httpx.HTTPError as e:
+        log.warning("heartbeat ping failed: %s", e)
 
 
 async def post_init(app: Application):
@@ -254,6 +270,12 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT, on_text))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO | filters.VIDEO_NOTE, on_voice))
     app.add_error_handler(on_error)
+    if url := os.getenv("HEARTBEAT_URL"):
+        # no misfire limit: after the Mac wakes, ping right away instead of waiting for the next slot
+        app.job_queue.run_repeating(
+            heartbeat, interval=600, first=5, data=url,
+            job_kwargs={"misfire_grace_time": None, "coalesce": True},
+        )
     log.info("felsig polling, vault=%s", VAULT)
     # Only new messages (not edits). Telegram holds unread messages for 24h, so anything
     # sent while the Mac was asleep arrives on wake.
