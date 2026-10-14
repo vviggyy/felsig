@@ -22,6 +22,7 @@ from pathlib import Path
 import av
 from dotenv import load_dotenv
 from telegram import BotCommand, Message, Update
+from telegram.error import Conflict
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 ROOT = Path(__file__).resolve().parent
@@ -230,6 +231,13 @@ async def on_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await status.edit_text(f"{reply}\n\n{body}"[:4000])
 
 
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
+    if isinstance(context.error, Conflict):
+        log.error("another copy of this bot is polling with the same token (./felsig.sh run and start at once?)")
+    else:
+        log.error("unhandled error", exc_info=context.error)
+
+
 async def post_init(app: Application):
     commands = [BotCommand(name, t.get("label", t["path"])) for name, t in TARGETS.items()]
     await app.bot.set_my_commands(commands + [BotCommand("help", "what goes where")])
@@ -243,6 +251,7 @@ def main():
     app = Application.builder().token(token).post_init(post_init).build()
     app.add_handler(MessageHandler(filters.TEXT, on_text))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO | filters.VIDEO_NOTE, on_voice))
+    app.add_error_handler(on_error)
     log.info("felsig polling, vault=%s", VAULT)
     # Only new messages (not edits). Telegram holds unread messages for 24h, so anything
     # sent while the Mac was asleep arrives on wake.

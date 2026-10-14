@@ -38,6 +38,11 @@ voice)
     echo "Voice ready: $MODEL_DIR/$MODEL"
     ;;
 run)
+    if launchctl print "gui/$UID/$LABEL" >/dev/null 2>&1; then
+        echo "The launchd service is already running this bot; two copies fight over Telegram."
+        echo "Use ./felsig.sh logs to watch it, or ./felsig.sh stop first."
+        exit 1
+    fi
     exec "$PY" "$DIR/bot.py"
     ;;
 start)
