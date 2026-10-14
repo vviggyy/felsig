@@ -83,7 +83,7 @@ restart)
     launchctl kickstart -k "gui/$UID/$LABEL" && echo "Restarted."
     ;;
 status)
-    launchctl print "gui/$UID/$LABEL" | grep -E '^\s*(state|pid|last exit code) =' || echo "Not running."
+    launchctl print "gui/$UID/$LABEL" 2>/dev/null | grep -E $'^\t(state|pid|last exit code) =' || echo "Not running."
     ;;
 logs)
     tail -n 50 -f "$LOG"
